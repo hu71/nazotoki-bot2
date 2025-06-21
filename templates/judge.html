@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>判定フォーム</title>
+</head>
+<body>
+    <h1>画像判定フォーム</h1>
+    {% for user in users %}
+        <div style="border:1px solid #ccc; padding:10px; margin:10px;">
+            <p><strong>名前:</strong> {{ user.name }}</p>
+            <p><strong>ステージ:</strong> 第{{ user.stage }}問</p>
+            <img src="{{ user.image }}" alt="ユーザー画像" width="300"><br><br>
+            <form method="POST" action="/judge">
+                <input type="hidden" name="user_id" value="{{ user.user_id }}">
+                {% if user.stage == 5 %}
+                    <button type="submit" name="result" value="correct1">正解1</button>
+                    <button type="submit" name="result" value="correct2">正解2</button>
+                    <button type="submit" name="result" value="wrong">不正解</button>
+                {% else %}
+                    <button type="submit" name="result" value="correct">正解</button>
+                    <button type="submit" name="result" value="wrong">不正解</button>
+                {% endif %}
+            </form>
+        </div>
+    {% endfor %}
+</body>
+</html>
