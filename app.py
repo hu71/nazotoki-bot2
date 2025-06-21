@@ -156,8 +156,8 @@ def send_question(user_id):
             TextSendMessage(text=q["text"]),
             {
                 "type": "image",
-                "originalContentUrl": f"https://yourdomain.com/{q['image']}",
-                "previewImageUrl": f"https://yourdomain.com/{q['image']}"
+                "originalContentUrl": f"https://nazotoki-bot2.onrender.com/{q['image']}",
+                "previewImageUrl": f"https://nazotoki-bot2.onrender.com/{q['image']}"
             }
         ])
     else:
