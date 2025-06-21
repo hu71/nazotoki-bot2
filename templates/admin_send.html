@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>個別送信フォーム</title>
+</head>
+<body>
+    <h1>主催者からのメッセージ送信</h1>
+    <form method="POST" action="/admin_send" enctype="multipart/form-data">
+        <label>ユーザーID:</label><br>
+        <input type="text" name="user_id" required><br><br>
+
+        <label>送信メッセージ:</label><br>
+        <input type="text" name="message"><br><br>
+
+        <label>画像を添付（任意）:</label><br>
+        <input type="file" name="image"><br><br>
+
+        <button type="submit">送信</button>
+    </form>
+</body>
+</html>
