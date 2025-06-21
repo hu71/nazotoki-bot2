@@ -1,13 +1,13 @@
 from flask import Flask, request, render_template, redirect
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage, StickerMessage
+from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage, ImageSendMessage
 from linebot.exceptions import InvalidSignatureError
 import os
 
 app = Flask(__name__)
 
-line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsGBf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')  # ← 自分のアクセストークンに置き換えて
-handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')         # ← 自分のシークレットに置き換えて
+line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')  # あなたのトークンに置き換えて
+handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')         # あなたのシークレットに置き換えて
 
 user_states = {}
 pending_users = []
@@ -18,7 +18,7 @@ questions = [
     {"text": "第2問: 机の裏を探してみよう。写真で答えてね！", "image": "static/question2.jpg"},
     {"text": "第3問: 黒板に書かれた数字に注目。写真で答えてね！", "image": "static/question3.jpg"},
     {"text": "第4問: 窓の外にヒントがあるよ。写真で答えてね！", "image": "static/question4.jpg"},
-    {"text": "第5問: 最後の謎はあなたの直感！写真で答えてね！", "image": "static/question5.jpg"}
+    {"text": "第5問: 最後の謎はあなたの直感！写真で答えてね！", "image": "static/final_question.jpg"}
 ]
 
 hints = [
@@ -85,10 +85,6 @@ def handle_text(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="good question!"))
         return
 
-@handler.add(MessageEvent, message=StickerMessage)
-def handle_sticker(event):
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text="何の意味があるの？"))
-
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image(event):
     user_id = event.source.user_id
@@ -131,11 +127,11 @@ def judge():
 
     if state["stage"] == len(questions) - 1:
         if result == "correct1":
-            line_bot_api.push_message(user_id, TextSendMessage(text="君の観察眼は確かだった。最後の答えがすべてを導いた！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="そのひらめき、素晴らしい！感動した！"))
         elif result == "correct2":
-            line_bot_api.push_message(user_id, TextSendMessage(text="大胆な発想が突破口だった！最高のエンディングだ！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="見事な直感！天才だ！"))
         else:
-            line_bot_api.push_message(user_id, TextSendMessage(text="残念、不正解だったけど、よく頑張ったね！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="残念、不正解でした！"))
         state["completed"] = True
     elif result == "correct":
         state["stage"] += 1
@@ -151,17 +147,14 @@ def judge():
 def send_question(user_id):
     stage = user_states[user_id]["stage"]
     q = questions[stage]
+    messages = [TextSendMessage(text=q["text"])]
     if q["image"]:
-        line_bot_api.push_message(user_id, [
-            TextSendMessage(text=q["text"]),
-            {
-                "type": "image",
-                "originalContentUrl": f"https://nazotoki-bot2.onrender.com/{q['image']}",
-                "previewImageUrl": f"https://nazotoki-bot2.onrender.com/{q['image']}"
-            }
-        ])
-    else:
-        line_bot_api.push_message(user_id, TextSendMessage(text=q["text"]))
+        domain = https://nazotoki-bot2.onrender.com # あなたのURLに変更
+        messages.append(ImageSendMessage(
+            original_content_url=f"{domain}/{q['image']}",
+            preview_image_url=f"{domain}/{q['image']}"
+        ))
+    line_bot_api.push_message(user_id, messages)
 
 def advance_stage(user_id, token, force=False):
     state = user_states[user_id]
