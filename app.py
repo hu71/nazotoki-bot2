@@ -149,7 +149,7 @@ def send_question(user_id):
     q = questions[stage]
     messages = [TextSendMessage(text=q["text"])]
     if q["image"]:
-        domain = https://nazotoki-bot2.onrender.com # あなたのURLに変更
+        domain = https://nazotoki-bot2.onrender.com# あなたのURLに変更
         messages.append(ImageSendMessage(
             original_content_url=f"{domain}/{q['image']}",
             preview_image_url=f"{domain}/{q['image']}"
