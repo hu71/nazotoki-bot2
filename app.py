@@ -3,7 +3,6 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 from linebot.exceptions import InvalidSignatureError
 import os
-import re
 
 app = Flask(__name__)
 
@@ -15,11 +14,11 @@ pending_users = []
 completed_users = set()
 
 questions = [
-    {"text": "第1問: 鍵は赤い箱の中。写真で答えてね！", "image": "static/question1.jpg"},
-    {"text": "第2問: 机の裏を探してみよう。写真で答えてね！", "image": "static/question2.jpg"},
-    {"text": "第3問: 黒板に書かれた数字に注目。写真で答えてね！", "image": "static/question3.jpg"},
-    {"text": "第4問: 窓の外にヒントがあるよ。写真で答えてね！", "image": "static/question4.jpg"},
-    {"text": "第5問: 最後の謎はあなたの直感！写真で答えてね！", "image": "static/question5.jpg"}
+    {"text": "第1問: 鍵は赤い箱の中。写真で答えてね！"},
+    {"text": "第2問: 机の裏を探してみよう。写真で答えてね！"},
+    {"text": "第3問: 黒板に書かれた数字に注目。写真で答えてね！"},
+    {"text": "第4問: 窓の外にヒントがあるよ。写真で答えてね！"},
+    {"text": "第5問: 最後の謎はあなたの直感！写真で答えてね！"}
 ]
 
 hints = [
@@ -60,26 +59,35 @@ def handle_text(event):
 
     if state["name"] is None:
         # 名前の重複チェック
-        if any(state["name"] == text for uid, state in user_states.items() if uid != user_id):
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="その名前は既に使われています。別の名前を登録してね。"))
+        if any(s["name"] == text for uid, s in user_states.items() if uid != user_id):
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="その名前は既に使われています。別の名前を入力してください。"))
             return
         state["name"] = text
         send_question(user_id)
         return
 
-    if re.match(r"reset\\d", text.lower()):
-        reset_stage = int(text.lower().replace("reset", ""))
-        if 0 <= reset_stage <= state["stage"]:
-            state["stage"] = reset_stage
-            state["completed"] = False
-            send_question(user_id)
+    if text.lower() == "reset0":
+        user_states[user_id] = {"name": None, "stage": 0, "completed": False}
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="名前を登録してね。"))
+        return
+
+    if text.lower().startswith("reset"):
+        try:
+            n = int(text[5:])
+            if 0 <= n <= user_states[user_id]["stage"]:
+                user_states[user_id]["stage"] = n
+                user_states[user_id]["completed"] = False
+                send_question(user_id)
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"第{n+1}問に戻ったよ！"))
+        except:
+            pass
         return
 
     if text.lower() == "retire":
         advance_stage(user_id, event.reply_token, force=True)
         return
 
-    if text == "ヒント":
+    if text.lower() == "ヒント":
         stage = state["stage"]
         if stage < len(hints):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=hints[stage]))
@@ -135,11 +143,11 @@ def judge():
 
     if state["stage"] == len(questions) - 1:
         if result == "correct1":
-            line_bot_api.push_message(user_id, TextSendMessage(text="素晴らしい観察力で真実を見抜いた！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="君の観察力には驚いたよ！最高のエンディングだ！"))
         elif result == "correct2":
-            line_bot_api.push_message(user_id, TextSendMessage(text="直感を信じて突き進んだ君に拍手！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="その直感、素晴らしい！ラストにふさわしい選択だったね！"))
         else:
-            line_bot_api.push_message(user_id, TextSendMessage(text="最後まで諦めず挑戦してくれてありがとう！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="最後までよく頑張ったね！でも答えは違ったみたい…"))
         state["completed"] = True
     elif result == "correct":
         state["stage"] += 1
@@ -155,14 +163,7 @@ def judge():
 def send_question(user_id):
     stage = user_states[user_id]["stage"]
     q = questions[stage]
-    messages = [TextSendMessage(text=q["text"])]
-    if q["image"] and os.path.exists(q["image"]):
-        messages.append({
-            "type": "image",
-            "originalContentUrl": f"https://nazotoki-bot2.onrender.com/{q['image']}",
-            "previewImageUrl": f"https://nazotoki-bot2.onrender.com/{q['image']}"
-        })
-    line_bot_api.push_message(user_id, messages)
+    line_bot_api.push_message(user_id, TextSendMessage(text=q["text"]))
 
 def advance_stage(user_id, token, force=False):
     state = user_states[user_id]
@@ -173,3 +174,19 @@ def advance_stage(user_id, token, force=False):
     else:
         send_question(user_id)
         line_bot_api.reply_message(token, TextSendMessage(text="謎の解説を送ったよ。次はこちら！"))
+
+@app.route("/send", methods=["GET", "POST"])
+def send():
+    if request.method == "POST":
+        user_id = request.form["user_id"]
+        message = request.form.get("message", "")
+        image_url = request.form.get("image_url", "")
+        if message:
+            line_bot_api.push_message(user_id, TextSendMessage(text=message))
+        if image_url:
+            line_bot_api.push_message(user_id, TextSendMessage(text=image_url))
+        return redirect("/send")
+    return render_template("admin_send.html", users=[
+        {"user_id": uid, "name": user_states[uid]["name"]}
+        for uid in user_states if user_states[uid]["name"]
+    ])
