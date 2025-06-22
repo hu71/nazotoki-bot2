@@ -1,13 +1,13 @@
 from flask import Flask, request, render_template, redirect
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage, ImageSendMessage
+from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 from linebot.exceptions import InvalidSignatureError
 import os
 
 app = Flask(__name__)
 
-line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')  # あなたのトークンに置き換えて
-handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')         # あなたのシークレットに置き換えて
+line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')
+handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')
 
 user_states = {}
 pending_users = []
@@ -62,10 +62,21 @@ def handle_text(event):
         send_question(user_id)
         return
 
-    if text.lower() == "reset":
+    if text.lower() == "reset0":
         user_states[user_id] = {"name": None, "stage": 0, "completed": False}
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="名前を登録してね。"))
         return
+
+    if text.lower().startswith("reset"):
+        try:
+            n = int(text[5:])
+            if 0 <= n <= user_states[user_id]["stage"]:
+                user_states[user_id]["stage"] = n
+                user_states[user_id]["completed"] = False
+                send_question(user_id)
+            return
+        except:
+            pass
 
     if text.lower() == "retire":
         advance_stage(user_id, event.reply_token, force=True)
@@ -127,9 +138,9 @@ def judge():
 
     if state["stage"] == len(questions) - 1:
         if result == "correct1":
-            line_bot_api.push_message(user_id, TextSendMessage(text="そのひらめき、素晴らしい！感動した！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="あなたの観察眼がすごい！見事に正解！"))
         elif result == "correct2":
-            line_bot_api.push_message(user_id, TextSendMessage(text="見事な直感！天才だ！"))
+            line_bot_api.push_message(user_id, TextSendMessage(text="驚くべき直感力！本当にすごい！"))
         else:
             line_bot_api.push_message(user_id, TextSendMessage(text="残念、不正解でした！"))
         state["completed"] = True
@@ -144,16 +155,46 @@ def judge():
 
     return redirect("/form")
 
+@app.route("/admin_send", methods=["GET", "POST"])
+def admin_send():
+    if request.method == "POST":
+        user_id = request.form["user_id"]
+        message = request.form.get("message")
+        image = request.files.get("image")
+
+        if message:
+            line_bot_api.push_message(user_id, TextSendMessage(text=message))
+
+        if image:
+            path = f"static/images/send_{user_id}.jpg"
+            image.save(path)
+            line_bot_api.push_message(user_id, [
+                TextSendMessage(text="画像を送信します！"),
+                {
+                    "type": "image",
+                    "originalContentUrl": f"https://yourdomain.com/{path}",
+                    "previewImageUrl": f"https://yourdomain.com/{path}"
+                }
+            ])
+
+        return redirect("/admin_send")
+
+    users = [
+        {"user_id": uid, "name": user_states[uid]["name"]}
+        for uid in user_states
+    ]
+    return render_template("admin_send.html", users=users)
+
 def send_question(user_id):
     stage = user_states[user_id]["stage"]
     q = questions[stage]
     messages = [TextSendMessage(text=q["text"])]
-    if q["image"]:
-        domain = nazotoki-bot2.onrender.com# あなたのURLに変更
-        messages.append(ImageSendMessage(
-            original_content_url=f"{domain}/{q['image']}",
-            preview_image_url=f"{domain}/{q['image']}"
-        ))
+    if q.get("image"):
+        messages.append({
+            "type": "image",
+            "originalContentUrl": f"https://nazotoki-bot2.onrender.com{q['image']}",
+            "previewImageUrl": f"https://nazotoki-bot2.onrender.com{q['image']}"
+        })
     line_bot_api.push_message(user_id, messages)
 
 def advance_stage(user_id, token, force=False):
