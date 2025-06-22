@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template, redirect
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
+from linebot.models import MessageEvent, T extMessage, ImageMessage, TextSendMessage
 from linebot.exceptions import InvalidSignatureError
 import os
 from werkzeug.utils import secure_filename
