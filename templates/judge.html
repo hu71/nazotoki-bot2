@@ -1,32 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>判定フォーム</title>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <title>画像判定フォーム</title>
 </head>
 <body>
     <h1>画像判定フォーム</h1>
     {% if users %}
         {% for user in users %}
-            <div style="border:1px solid #000; padding:10px; margin-bottom:20px;">
-                <p><strong>名前:</strong> {{ user.name }}</p>
-                <p><strong>ステージ:</strong> 第{{ user.stage }}問</p>
-                <p><img src="{{ user.image }}" alt="画像" width="300"></p>
-                <form action="/judge" method="post">
+            <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 20px;">
+                <p><strong>名前:</strong> {{ user.name }}（第{{ user.stage }}問）</p>
+                <img src="{{ user.image }}" alt="画像" style="max-width: 300px;"><br><br>
+                <form action="/judge" method="POST">
                     <input type="hidden" name="user_id" value="{{ user.user_id }}">
                     {% if user.stage == 5 %}
                         <button type="submit" name="result" value="correct1">正解1</button>
                         <button type="submit" name="result" value="correct2">正解2</button>
-                        <button type="submit" name="result" value="incorrect">不正解</button>
                     {% else %}
                         <button type="submit" name="result" value="correct">正解</button>
-                        <button type="submit" name="result" value="incorrect">不正解</button>
                     {% endif %}
+                    <button type="submit" name="result" value="wrong">不正解</button>
                 </form>
             </div>
         {% endfor %}
     {% else %}
-        <p>保留中のユーザーはいません。</p>
+        <p>現在、判定待ちのユーザーはいません。</p>
     {% endif %}
 </body>
 </html>
