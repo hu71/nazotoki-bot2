@@ -7,8 +7,8 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')
-handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')
+line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')  # ここに自分のチャネルアクセストークンを挿入
+handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')  # ここに自分のチャネルシークレットを挿入
 
 user_states = {}
 pending_users = []
@@ -38,10 +38,12 @@ def index():
 def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
+
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         return 'Invalid signature', 400
+
     return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
@@ -195,3 +197,6 @@ def advance_stage(user_id, token, force=False):
         line_bot_api.reply_message(token, TextSendMessage(text="謎の解説を送るよ！お疲れ様！"))
     else:
         line_bot_api.reply_message(token, TextSendMessage(text="謎の解説を送ったよ。次はこちら！\n" + questions[state["stage"]]["text"]))
+
+if __name__ == "__main__":
+    app.run(debug=True)
