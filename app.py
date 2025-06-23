@@ -1,25 +1,22 @@
+import os
 from flask import Flask, request, render_template, redirect
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage, StickerMessage
 from linebot.exceptions import InvalidSignatureError
-import os
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-
-line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')  # ここに自分のチャネルアクセストークンを挿入
-handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')  # ここに自分のチャネルシークレットを挿入
+line_bot_api = LineBotApi('00KCkQLhlaDFzo5+UTu+/C4A49iLmHu7bbpsfW8iamonjEJ1s88/wdm7Yrou+FazbxY7719UNGh96EUMa8QbsG Bf9K5rDWhJpq8XTxakXRuTM6HiJDSmERbIWfyfRMfscXJPcRyTL6YyGNZxqkYSAQdB04t89/1O/w1cDnyilFU=')  # ← あなたのトークンに置き換えてください
+handler = WebhookHandler('6c12aedc292307f95ccd67e959973761')        # ← あなたのシークレットに置き換えてください
 
 user_states = {}
 pending_users = []
-completed_users = set()
 
 questions = [
-    {"text": "第1問: 鍵は赤い箱の中。写真で答えてね！"},
-    {"text": "第2問: 机の裏を探してみよう。写真で答えてね！"},
-    {"text": "第3問: 黒板に書かれた数字に注目。写真で答えてね！"},
-    {"text": "第4問: 窓の外にヒントがあるよ。写真で答えてね！"},
-    {"text": "第5問: 最後の謎はあなたの直感！写真で答えてね！"}
+    "第1問: 鍵は赤い箱の中。その答えを写真で送ってね！",
+    "第2問: 机の裏を探してみよう。写真で送ってね！",
+    "第3問: 黒板に書かれた数字に注目。写真で送ってね！",
+    "第4問: 窓の外にヒントがあるよ。写真で送ってね！",
+    "第5問: 最後の謎はあなたの直感！写真で送ってね！"
 ]
 
 hints = [
@@ -31,8 +28,8 @@ hints = [
 ]
 
 @app.route("/")
-def index():
-    return "Bot is running"
+def hello():
+    return "LINE Bot is running."
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -42,7 +39,7 @@ def callback():
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        return 'Invalid signature', 400
+        return 'Invalid signature.', 400
 
     return 'OK'
 
@@ -57,65 +54,74 @@ def handle_text(event):
         return
 
     state = user_states[user_id]
+
     if state["completed"]:
         return
 
     if state["name"] is None:
-        if text in [u["name"] for u in user_states.values() if u["name"]]:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="この名前はすでに使われています。別の名前を登録してください。"))
+        if any(u["name"] == text for u in user_states.values() if u["name"]):
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="その名前はすでに使われています。別の名前を入力してください。"))
             return
         state["name"] = text
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"{text}さん、参加してくれてありがとう！\n{questions[0]['text']}"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"{text}さん、参加ありがとう！\n{questions[0]}"))
         return
 
-    if text.lower() == "reset0":
-        user_states[user_id] = {"name": None, "stage": 0, "completed": False}
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="名前を登録してね。"))
-        return
-
-    if text.lower().startswith("reset"):
+    if text.startswith("Reset"):
         try:
             n = int(text[5:])
-            if 0 <= n <= user_states[user_id]["stage"]:
-                user_states[user_id]["stage"] = n
-                user_states[user_id]["completed"] = False
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"第{n+1}問に戻ります。\n{questions[n]['text']}"))
-            else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="まだその問題には進んでいません。"))
-        except ValueError:
-            pass
+            if 0 <= n <= state["stage"]:
+                state["stage"] = n
+                state["completed"] = False
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"第{n+1}問にリセットしました！\n{questions[n]}"))
+            return
+        except:
+            return
+
+    if text == "ヒント":
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=hints[state["stage"]]))
         return
 
-    if text.lower() == "retire":
-        advance_stage(user_id, event.reply_token, force=True)
-        return
-
-    if text.lower() == "ヒント":
-        stage = state["stage"]
-        if stage < len(hints):
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=hints[stage]))
+    if text == "Retire":
+        if state["stage"] < len(questions) - 1:
+            state["stage"] += 1
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"謎の解説を送ったよ！次はこちら！\n{questions[state['stage']]}"))
+        else:
+            state["completed"] = True
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="謎解きお疲れ様でした！"))
         return
 
     if text == "1=∞":
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="そんなわけねぇだろ亀ども"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="そんなわけないだろ亀ども"))
         return
 
     if text.endswith("？"):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="good question!"))
         return
 
+@handler.add(MessageEvent, message=StickerMessage)
+def handle_sticker(event):
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text="何の意味があるの？"))
+
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image(event):
     user_id = event.source.user_id
-    if user_id not in user_states or user_states[user_id]["completed"]:
+    if user_id not in user_states:
+        return
+
+    state = user_states[user_id]
+    if state["completed"]:
         return
 
     os.makedirs("static/images", exist_ok=True)
-    message_content = line_bot_api.get_message_content(event.message.id)
-    image_path = f"static/images/{user_id}.jpg"
-    with open(image_path, 'wb') as f:
-        for chunk in message_content.iter_content():
-            f.write(chunk)
+    try:
+        content = line_bot_api.get_message_content(event.message.id)
+        path = f"static/images/{user_id}.jpg"
+        with open(path, "wb") as f:
+            for chunk in content.iter_content():
+                f.write(chunk)
+    except Exception as e:
+        print("Error saving image:", e)
+        return
 
     if user_id not in pending_users:
         pending_users.append(user_id)
@@ -125,13 +131,13 @@ def handle_image(event):
 @app.route("/form")
 def form():
     users = []
-    for uid in pending_users:
-        state = user_states[uid]
+    for user_id in pending_users:
+        state = user_states[user_id]
         users.append({
-            "user_id": uid,
+            "user_id": user_id,
             "name": state["name"],
             "stage": state["stage"] + 1,
-            "image": f"/static/images/{uid}.jpg"
+            "image": f"/static/images/{user_id}.jpg"
         })
     return render_template("judge.html", users=users)
 
@@ -141,62 +147,47 @@ def judge():
     result = request.form["result"]
     state = user_states[user_id]
 
-    if state["completed"]:
-        return redirect("/form")
-
-    if state["stage"] == len(questions) - 1:
-        if result == "correct1":
-            line_bot_api.push_message(user_id, TextSendMessage(text="感性で真実を見抜いたあなたに拍手！"))
-        elif result == "correct2":
-            line_bot_api.push_message(user_id, TextSendMessage(text="論理的思考が光ったね！お見事！"))
+    if result == "correct1":
+        if state["stage"] == 4:
+            line_bot_api.push_message(user_id, TextSendMessage(text="おめでとう！よく気づいたね。君のひらめきは最高だった！"))
+            state["completed"] = True
         else:
-            line_bot_api.push_message(user_id, TextSendMessage(text="残念、不正解でした！"))
-        state["completed"] = True
-    elif result == "correct":
-        state["stage"] += 1
-        line_bot_api.push_message(user_id, TextSendMessage(text=questions[state["stage"]]["text"]))
-    else:
-        line_bot_api.push_message(user_id, TextSendMessage(text="残念、不正解。もう一度考えてみて！"))
+            state["stage"] += 1
+            line_bot_api.push_message(user_id, TextSendMessage(text="大正解！次の問題に進もう！\n" + questions[state["stage"]]))
+
+    elif result == "correct2":
+        if state["stage"] == 4:
+            line_bot_api.push_message(user_id, TextSendMessage(text="すばらしい！落ち着いて考えた君の勝利だ！"))
+            state["completed"] = True
+
+    elif result == "incorrect":
+        line_bot_api.push_message(user_id, TextSendMessage(text="残念、不正解。もう一度考えてみよう。「ヒント」と送ってみてね！"))
 
     if user_id in pending_users:
         pending_users.remove(user_id)
 
     return redirect("/form")
 
-@app.route("/admin", methods=["GET"])
-def show_admin_form():
-    return render_template("admin_send.html", users=user_states)
+@app.route("/admin")
+def admin():
+    all_users = [
+        {"user_id": uid, "name": state["name"], "stage": state["stage"] + 1}
+        for uid, state in user_states.items()
+    ]
+    return render_template("admin_send.html", users=all_users)
 
 @app.route("/admin_send", methods=["POST"])
 def admin_send():
     user_id = request.form["user_id"]
-    text = request.form.get("text")
+    message = request.form["message"]
     image = request.files.get("image")
 
-    if text:
-        line_bot_api.push_message(user_id, TextSendMessage(text=text))
+    if message:
+        line_bot_api.push_message(user_id, TextSendMessage(text=message))
 
     if image:
-        filename = secure_filename(image.filename)
-        image_path = os.path.join("static", "images", filename)
-        image.save(image_path)
-        image_url = request.host_url + image_path.replace("\\", "/")
-        line_bot_api.push_message(user_id, {
-            "type": "image",
-            "originalContentUrl": image_url,
-            "previewImageUrl": image_url
-        })
+        path = f"static/images/admin_{user_id}.jpg"
+        image.save(path)
+        line_bot_api.push_message(user_id, TextSendMessage(text="画像を送信しました（仮: Renderでは画像Pushは未実装）"))
 
     return redirect("/admin")
-
-def advance_stage(user_id, token, force=False):
-    state = user_states[user_id]
-    state["stage"] += 1
-    if state["stage"] >= len(questions):
-        state["completed"] = True
-        line_bot_api.reply_message(token, TextSendMessage(text="謎の解説を送るよ！お疲れ様！"))
-    else:
-        line_bot_api.reply_message(token, TextSendMessage(text="謎の解説を送ったよ。次はこちら！\n" + questions[state["stage"]]["text"]))
-
-if __name__ == "__main__":
-    app.run(debug=True)
