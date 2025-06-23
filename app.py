@@ -97,7 +97,7 @@ def handle_text(event):
         return
 
     if text == "1=∞":
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="そんなわけないだろ亀ども"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="そんなわけねぇだろ亀ども"))
         return
 
     if text.endswith("？"):
